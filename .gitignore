@@ -1,0 +1,18 @@
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.*.example
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts that may appear in subprojects
+dist/
+build/
+.react-router/
+*.tsbuildinfo
+coverage/
+storybook-static/
