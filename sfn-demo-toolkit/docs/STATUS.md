@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.2.0** (F1 + F2 complete)
+Current version: **0.3.0** (F1 + F2 + F3a complete)
 
 ## Phases
 
@@ -23,10 +23,17 @@ Current version: **0.2.0** (F1 + F2 complete)
   - Output identical to manually-patched reference (modulo JSON array indent — cosmetic)
   - `pnpm typecheck`: 131/131 baseline (zero new errors)
 
-### F3 — Crawler ⏳
-- Port `webcrawler/` from cc-b2c-sfnext-brand-demo, removing apply-branding.js
-- Keep: fetch-page, dom, colors, select-from-json, overrides, preview, templates
-- Adapt output paths to write under target repo's `.sfn-toolkit/<clientId>/`
+### F3a — Crawler ported + scrape command ✅
+- Ported 17 crawler files from cc-b2c-sfnext-brand-demo (PORT + ADAPT). Dropped 3 (templates, apply-branding, brand-analyzer) that targeted the old fork-core architecture.
+- Playwright is now the **default fetcher** (was env-gated before); falls back to native fetch with a clear note if Playwright or chromium binary missing
+- Added `playwright ^1.50.0` as `optionalDependencies`
+- New `sfn-toolkit scrape <url>` subcommand: writes `page.json`, `page.html`, `page.md` to `.sfn-toolkit/scrape/` (or `--out <dir>`)
+- Flags: `--no-playwright`, `--wait-for <ms>`
+- Validated on shop.tesla.com (30 images detected, Playwright renderer used)
+
+### F3b — Brand analysis pipeline ⏳
+- Adapt `brand-pipeline.js` to write the `BrandContent` shape (matching `src/extensions/branding/types.ts`) instead of the legacy `branding-presets.ts` snippet
+- Wire `sfn-toolkit brand <url> --client-id <id>` that runs scrape + slot selection + token extraction
 
 ### F4 — Apply branding ⏳
 - Read crawler output (`analysis.json` + `overrides.json`)
