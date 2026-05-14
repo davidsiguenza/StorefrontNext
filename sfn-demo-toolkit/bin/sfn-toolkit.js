@@ -53,7 +53,7 @@ Usage:
   sfn-toolkit patch <repo-path> [--force]
   sfn-toolkit scrape <url> [--out <dir>] [--no-playwright] [--wait-for <ms>]
   sfn-toolkit brand <url> --client-id <id> [--display-name <name>] [--out <dir>] [--site-id <id>]
-  sfn-toolkit apply --target <sfn-repo> --brand-dir <dir>     Apply generated brand into SFN repo
+  sfn-toolkit apply --target <sfn-repo> --brand-dir <dir> [--inherit-env <path>]
 
 Options:
   --target <path>            Target SFN repo (default: cwd)
@@ -64,6 +64,8 @@ Options:
   --site-id <id>             Commerce Cloud siteId, written into the env profile
   --no-playwright            Skip Playwright fetcher (use native fetch)
   --wait-for <ms>            Wait N ms after page load (Playwright only)
+  --inherit-env <path>       Reuse SCAPI credentials from another repo's .env
+                             (apply only — saves filling them in by hand)
   --version                  Print toolkit version
   --help                     Show this help
 `);
@@ -240,7 +242,11 @@ if (cmd === 'apply') {
     try {
         const { applyBrand } = await import('../audit/apply-brand.mjs');
         stderr.write(`Applying brand from ${resolve(brandDir)} to ${target} ...\n`);
-        const log = await applyBrand({ brandDir, targetRepo: target });
+        const log = await applyBrand({
+            brandDir,
+            targetRepo: target,
+            inheritEnv: args['inherit-env'],
+        });
         stdout.write(`\nApplied brand "${log.brandId}":\n`);
         for (const s of log.steps) {
             const status = s.error
@@ -255,13 +261,17 @@ if (cmd === 'apply') {
         }
         const dotEnvStep = log.steps.find((s) => s.step === '.env');
         const envBootstrapped = dotEnvStep && !dotEnvStep.skipped;
+        const inheritedCreds = !!args['inherit-env'];
 
         stdout.write(`\nNext steps:\n`);
-        if (envBootstrapped) {
+        if (envBootstrapped && inheritedCreds) {
+            stdout.write(`  cd ${target}\n`);
+            stdout.write(`  pnpm install && pnpm dev   # SCAPI credentials inherited from --inherit-env\n`);
+        } else if (envBootstrapped) {
             stdout.write(`  1. Edit ${target}/.env and fill in SCAPI credentials\n`);
             stdout.write(`     (PUBLIC__app__commerce__api__{clientId,organizationId,shortCode},\n`);
             stdout.write(`      COMMERCE_API_SLAS_SECRET, PUBLIC__app__defaultSiteId)\n`);
-            stdout.write(`     Tip: copy from another working repo's .env to skip this.\n`);
+            stdout.write(`     Tip: rerun \`sfn-toolkit apply\` with --inherit-env <path-to-other-.env> to skip this.\n`);
             stdout.write(`  2. cd ${target} && pnpm install && pnpm dev\n`);
         } else {
             stdout.write(`  cd ${target}\n`);

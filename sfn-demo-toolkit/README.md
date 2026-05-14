@@ -63,23 +63,21 @@ sfn-toolkit brand https://nike.com --client-id nike --display-name "Nike"
 # → produces .sfn-toolkit/brand/nike/{analysis.json,brand-content.ts,theme.css,profile.env,preview.html}
 
 # 4. Apply the brand into the repo
+#    Option A — start from an empty profile (you'll fill in SCAPI creds by hand):
 sfn-toolkit apply --target . --brand-dir .sfn-toolkit/brand/nike
-# This also copies .env.profiles/nike.env → .env if no .env exists yet,
-# so step 6 below works out of the box.
 
-# 5. Fill in SCAPI credentials in .env (clientId/organizationId/shortCode/secret/siteId)
-#    The toolkit cannot guess these — get them from Account Manager + Business Manager.
-#    Until you fill them in, `pnpm dev` will fail with "Missing shortCode in commerce.api".
+#    Option B (Recommended) — inherit SCAPI creds from a working .env you already have
+#    (e.g. another client repo, or the DSPMarketStreet sandbox):
+sfn-toolkit apply --target . --brand-dir .sfn-toolkit/brand/nike \
+  --inherit-env ~/clients/dspms/.env
+
+# 5. (Only if Option A) Edit .env and fill in clientId/organizationId/shortCode/secret/siteId
+#    The toolkit cannot guess these — they come from Account Manager + Business Manager.
 
 # 6. Install + boot
 pnpm install
 pnpm dev
 ```
-
-> **Tip — reusing an existing sandbox**: if you already have a working SFN repo
-> for another client (e.g. DSPMarketStreet-zzpm048 with valid credentials),
-> you can copy that `.env` into the new client repo to skip step 5 and validate
-> the branding without setting up a fresh sandbox first.
 
 ### Other useful commands
 
