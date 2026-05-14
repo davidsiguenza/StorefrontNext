@@ -11,7 +11,7 @@ import { applyManifest } from '../audit/apply-patches.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOOLKIT_ROOT = resolve(__dirname, '..');
-const COMMANDS = ['new', 'rebrand', 'upgrade-check', 'patch', 'scrape', 'help'];
+const COMMANDS = ['new', 'rebrand', 'upgrade-check', 'patch', 'scrape', 'brand', 'help'];
 
 function parseArgs(args) {
     const out = { _: [] };
@@ -52,11 +52,15 @@ Usage:
   sfn-toolkit upgrade-check --target <repo-path>
   sfn-toolkit patch <repo-path> [--force]
   sfn-toolkit scrape <url> [--out <dir>] [--no-playwright] [--wait-for <ms>]
+  sfn-toolkit brand <url> --client-id <id> [--display-name <name>] [--out <dir>] [--site-id <id>]
 
 Options:
   --target <path>            Target SFN repo (default: cwd)
   --force                    Apply even if drift detected
-  --out <dir>                Output dir for scrape artifacts (default: .sfn-toolkit/scrape)
+  --out <dir>                Output dir (default: .sfn-toolkit/<scrape|brand/<id>>)
+  --client-id <id>           Brand/client slug (kebab-case)
+  --display-name <name>      Human-readable brand name (default: derived from URL)
+  --site-id <id>             Commerce Cloud siteId, written into the env profile
   --no-playwright            Skip Playwright fetcher (use native fetch)
   --wait-for <ms>            Wait N ms after page load (Playwright only)
   --version                  Print toolkit version
@@ -173,6 +177,51 @@ if (cmd === 'scrape') {
         stdout.write(`Final URL: ${payload.finalUrl}\n`);
         stdout.write(`Images found: ${payload.images.length}\n`);
         stdout.write(`Output: ${outDir}\n  - page.json (full payload)\n  - page.html (raw)\n  - page.md (markdown)\n`);
+        exit(0);
+    } catch (e) {
+        stderr.write(`Error: ${e.message}\n`);
+        exit(1);
+    }
+}
+
+if (cmd === 'brand') {
+    const url = args._[0];
+    const clientId = args['client-id'];
+    if (!url) {
+        stderr.write('Error: missing URL.\nUsage: sfn-toolkit brand <url> --client-id <id>\n');
+        exit(1);
+    }
+    if (!clientId) {
+        stderr.write('Error: missing --client-id.\n');
+        exit(1);
+    }
+    if (args['no-playwright']) {
+        process.env.WEBCRAWLER_NO_PLAYWRIGHT = '1';
+    }
+    const outDir = args.out ? resolve(args.out) : undefined;
+    try {
+        const { runBrandPipeline } = await import('../crawler/src/lib/sfn-brand-pipeline.js');
+        stderr.write(`Analyzing ${url} for client "${clientId}" ...\n`);
+        const result = await runBrandPipeline({
+            url,
+            clientId,
+            displayName: args['display-name'],
+            siteId: args['site-id'],
+            outDir,
+            waitFor: args['wait-for'] ? Number(args['wait-for']) : 0,
+        });
+        stdout.write(`\nBrand: ${result.brandContent.displayName} (${result.brandContent.id})\n`);
+        stdout.write(`Hero slides: ${result.brandContent.hero.length}\n`);
+        stdout.write(`Featured cards: ${result.brandContent.featuredCards.primary.length}${result.brandContent.featuredCards.textOnly ? ' + textOnly' : ''}\n`);
+        stdout.write(`Logo: ${result.brandContent.logo.src || '(none detected)'}\n`);
+        stdout.write(`Renderer: ${result.analysis.rendererSummary.renderer}\n`);
+        stdout.write(`\nOutput: ${result.outputDir}\n`);
+        stdout.write(`  - analysis.json (full crawler output)\n`);
+        stdout.write(`  - brand-content.ts (drop into clients/${clientId}/content.ts)\n`);
+        stdout.write(`  - theme.css (drop into clients/${clientId}/theme.css)\n`);
+        stdout.write(`  - profile.env (drop into .env.profiles/${clientId}.env)\n`);
+        stdout.write(`  - preview.html (open in browser to review)\n`);
+        stdout.write(`\nNext: F4 will copy these into a target SFN repo automatically.\n`);
         exit(0);
     } catch (e) {
         stderr.write(`Error: ${e.message}\n`);

@@ -18,14 +18,14 @@ Switching between client demos in dev is a single command: `pnpm demo:switch <cl
 
 ## Status
 
-🚧 **Early development — v0.3.0**. F1-F3a working. See [docs/STATUS.md](./docs/STATUS.md) for current progress.
+🚧 **Early development — v0.4.0**. F1-F3 working. See [docs/STATUS.md](./docs/STATUS.md) for current progress.
 
 | Phase | Goal | Status |
 |---|---|---|
 | F1 | Toolkit scaffolding + skill skeleton | ✅ |
 | F2 | Patches v0.3 + version drift audit + apply | ✅ |
 | F3a | Crawler ported + `scrape` command | ✅ |
-| F3b | Brand analysis pipeline → BrandContent | ⏳ |
+| F3b | Brand analysis pipeline → BrandContent | ✅ |
 | F4 | Apply branding (per-client artifacts) | ⏳ |
 | F5 | Catalog generation + sandbox import | ⏳ |
 | F6 | Polish, docs, second-client validation | ⏳ |

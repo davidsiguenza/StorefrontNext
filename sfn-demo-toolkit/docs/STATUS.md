@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.3.0** (F1 + F2 + F3a complete)
+Current version: **0.4.0** (F1 + F2 + F3 complete)
 
 ## Phases
 
@@ -31,9 +31,12 @@ Current version: **0.3.0** (F1 + F2 + F3a complete)
 - Flags: `--no-playwright`, `--wait-for <ms>`
 - Validated on shop.tesla.com (30 images detected, Playwright renderer used)
 
-### F3b — Brand analysis pipeline ⏳
-- Adapt `brand-pipeline.js` to write the `BrandContent` shape (matching `src/extensions/branding/types.ts`) instead of the legacy `branding-presets.ts` snippet
-- Wire `sfn-toolkit brand <url> --client-id <id>` that runs scrape + slot selection + token extraction
+### F3b — Brand analysis pipeline ✅
+- New `crawler/src/lib/sfn-content-builder.js`: maps crawler analysis to `BrandContent` shape, renders `content.ts`, `theme.css`, `profile.env`
+- New `crawler/src/lib/sfn-brand-pipeline.js`: clean pipeline without legacy `templates.js` / `apply-branding.js` dependencies
+- New `sfn-toolkit brand <url> --client-id <id>` command: scrape + extract tokens + select slots + render artifacts
+- Validated on shop.tesla.com: 4 hero slides, 2+textOnly featured cards, logo URL detected, color palette extracted (yellow primary, white bg, black fg, dark border), Playwright renderer
+- Quality of extracted copy varies (slide 1 sometimes falls back to image URL as title); architectural baseline is solid, can iterate on heuristics later
 
 ### F4 — Apply branding ⏳
 - Read crawler output (`analysis.json` + `overrides.json`)
