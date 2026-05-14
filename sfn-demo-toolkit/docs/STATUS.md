@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.1.0** (F1 complete)
+Current version: **0.2.0** (F1 + F2 complete)
 
 ## Phases
 
@@ -12,12 +12,16 @@ Current version: **0.1.0** (F1 complete)
 - Empty patches/v0.3/manifest.json
 - README with end-to-end narrative
 
-### F2 — Patches v0.3 + audit + apply 🚧
-- Port `src/extensions/branding/` from feature/branding-extension into `patches/v0.3/extensions/branding/`
-- Convert the 5 core edits (root.tsx, header, home route, config.server.ts, types/config.ts) into anchor-based patch descriptors at `patches/v0.3/core-edits/*.json`
-- Implement `audit/version-drift.mjs`: read target's `package.json`, compare runtime version, run anchor regex against each patched file, report PASS/FAIL with diffs
-- Implement `bin/sfn-toolkit.js patch <repo>`: applies the v0.3 bundle to a fresh clone; aborts if drift detected unless `--force`
-- Test on a fresh clone of the upstream template
+### F2 — Patches v0.3 + audit + apply ✅
+- Branding extension ported to `patches/v0.3/extensions/branding/` (default client only)
+- 13 anchor-based patch descriptors in `patches/v0.3/manifest.json` covering 8 files
+- 5 patch ops supported: `merge-json`, `insert-after-anchor`, `replace-anchor`, `wrap-anchor-block`, `append-if-missing`
+- `audit/version-drift.mjs` validates runtime version + anchors; `audit/apply-patches.mjs` performs idempotent transforms
+- `bin/sfn-toolkit.js upgrade-check` and `patch` fully wired (with `--force` override)
+- Validated on fresh clone of `DSPMarketStreet-zzpm048@latest` (SFN 0.3.1):
+  - 13/13 anchors found
+  - Output identical to manually-patched reference (modulo JSON array indent — cosmetic)
+  - `pnpm typecheck`: 131/131 baseline (zero new errors)
 
 ### F3 — Crawler ⏳
 - Port `webcrawler/` from cc-b2c-sfnext-brand-demo, removing apply-branding.js

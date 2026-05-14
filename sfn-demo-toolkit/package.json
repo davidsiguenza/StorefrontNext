@@ -1,6 +1,6 @@
 {
     "name": "@davidsiguenza/sfn-demo-toolkit",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Toolkit to bootstrap and brand Salesforce Storefront Next demos for clients.",
     "type": "module",
     "bin": {

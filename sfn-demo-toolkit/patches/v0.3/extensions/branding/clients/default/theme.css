@@ -1,0 +1,4 @@
+/* Default client — inherits all tokens from src/app.css. No overrides. */
+:root[data-brand='default'] {
+    /* placeholder; add overrides per client. */
+}
