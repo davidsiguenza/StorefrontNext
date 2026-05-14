@@ -50,7 +50,7 @@ sfn-toolkit --help
 ### Quickstart: brand a new client end-to-end (F1-F4 working today)
 
 ```bash
-# 1. Clone a fresh SFN template (or use an existing 0.3.x clone)
+# 1. Clone a fresh SFN template (or use an existing 0.3.x / 0.4.x clone)
 git clone https://github.com/SalesforceCommerceCloud/storefront-next-template ~/clients/nike-demo
 cd ~/clients/nike-demo
 
@@ -64,12 +64,22 @@ sfn-toolkit brand https://nike.com --client-id nike --display-name "Nike"
 
 # 4. Apply the brand into the repo
 sfn-toolkit apply --target . --brand-dir .sfn-toolkit/brand/nike
+# This also copies .env.profiles/nike.env → .env if no .env exists yet,
+# so step 6 below works out of the box.
 
-# 5. Boot
+# 5. Fill in SCAPI credentials in .env (clientId/organizationId/shortCode/secret/siteId)
+#    The toolkit cannot guess these — get them from Account Manager + Business Manager.
+#    Until you fill them in, `pnpm dev` will fail with "Missing shortCode in commerce.api".
+
+# 6. Install + boot
 pnpm install
-pnpm demo:switch nike
 pnpm dev
 ```
+
+> **Tip — reusing an existing sandbox**: if you already have a working SFN repo
+> for another client (e.g. DSPMarketStreet-zzpm048 with valid credentials),
+> you can copy that `.env` into the new client repo to skip step 5 and validate
+> the branding without setting up a fresh sandbox first.
 
 ### Other useful commands
 

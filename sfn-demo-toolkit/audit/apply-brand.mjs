@@ -173,5 +173,18 @@ export async function applyBrand({ brandDir, targetRepo }) {
     const themesResult = registerInThemesBarrel(targetRepo, brandId);
     log.steps.push({ step: 'themes.css', changed: themesResult.changed });
 
+    // 8. Bootstrap .env if missing, so `pnpm dev` doesn't immediately fail
+    const dotEnvPath = resolve(targetRepo, '.env');
+    if (!existsSync(dotEnvPath)) {
+        const profilePath = resolve(envProfileDir, `${brandId}.env`);
+        copyFileSync(profilePath, dotEnvPath);
+        log.steps.push({
+            step: '.env',
+            path: '.env (copied from profile; fill SCAPI credentials before pnpm dev)',
+        });
+    } else {
+        log.steps.push({ step: '.env', skipped: 'already exists; run `pnpm demo:switch <id>` to swap' });
+    }
+
     return log;
 }

@@ -253,7 +253,21 @@ if (cmd === 'apply') {
             const detail = s.path ? ` ${s.path}` : s.local ? ` ${s.local}` : '';
             stdout.write(`  ${status} ${s.step}${detail}\n`);
         }
-        stdout.write(`\nNext: cd ${target} && pnpm demo:switch ${log.brandId} && pnpm dev\n`);
+        const dotEnvStep = log.steps.find((s) => s.step === '.env');
+        const envBootstrapped = dotEnvStep && !dotEnvStep.skipped;
+
+        stdout.write(`\nNext steps:\n`);
+        if (envBootstrapped) {
+            stdout.write(`  1. Edit ${target}/.env and fill in SCAPI credentials\n`);
+            stdout.write(`     (PUBLIC__app__commerce__api__{clientId,organizationId,shortCode},\n`);
+            stdout.write(`      COMMERCE_API_SLAS_SECRET, PUBLIC__app__defaultSiteId)\n`);
+            stdout.write(`     Tip: copy from another working repo's .env to skip this.\n`);
+            stdout.write(`  2. cd ${target} && pnpm install && pnpm dev\n`);
+        } else {
+            stdout.write(`  cd ${target}\n`);
+            stdout.write(`  pnpm demo:switch ${log.brandId}   # swap active brand\n`);
+            stdout.write(`  pnpm dev\n`);
+        }
         exit(0);
     } catch (e) {
         stderr.write(`Error: ${e.message}\n`);
