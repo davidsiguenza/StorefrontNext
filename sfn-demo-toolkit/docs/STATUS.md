@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.4.0** (F1 + F2 + F3 complete)
+Current version: **0.5.0** (F1 + F2 + F3 + F4 complete; full branding flow end-to-end)
 
 ## Phases
 
@@ -38,13 +38,14 @@ Current version: **0.4.0** (F1 + F2 + F3 complete)
 - Validated on shop.tesla.com: 4 hero slides, 2+textOnly featured cards, logo URL detected, color palette extracted (yellow primary, white bg, black fg, dark border), Playwright renderer
 - Quality of extracted copy varies (slide 1 sometimes falls back to image URL as title); architectural baseline is solid, can iterate on heuristics later
 
-### F4 — Apply branding ⏳
-- Read crawler output (`analysis.json` + `overrides.json`)
-- Write `src/extensions/branding/clients/<id>/content.ts`
-- Write `src/extensions/branding/clients/<id>/theme.css`
-- Write `.env.profiles/<id>.env`
-- Append registry.ts and themes.css barrel
-- Download logo to `public/images/brands/<id>/`
+### F4 — Apply branding ✅
+- New `audit/apply-brand.mjs`: idempotent writer that takes a brand-dir (output of `brand` command) and copies it into a target SFN repo
+- Downloads remote logo to `public/images/brands/<id>/logo.<ext>` (graceful: if 404 / network error, reports it but other steps continue)
+- Rewrites `brand-content.ts` `logo.src` to the local path before writing
+- Registers client in `registry.ts` (adds import + entry, idempotent)
+- Registers theme in `themes.css` (adds @import, idempotent)
+- Wired as `sfn-toolkit apply --target <repo> --brand-dir <dir>`
+- End-to-end validated: fresh clone → `patch` → `brand https://shop.tesla.com` → `apply` → typecheck 131/131 baseline. Re-running `apply` is a no-op for registered files (idempotent).
 
 ### F5 — Catalog ⏳
 - Generator (templates per industry: fashion, food, beauty, generic)

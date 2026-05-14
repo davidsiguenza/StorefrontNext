@@ -11,7 +11,7 @@ import { applyManifest } from '../audit/apply-patches.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOOLKIT_ROOT = resolve(__dirname, '..');
-const COMMANDS = ['new', 'rebrand', 'upgrade-check', 'patch', 'scrape', 'brand', 'help'];
+const COMMANDS = ['new', 'rebrand', 'upgrade-check', 'patch', 'scrape', 'brand', 'apply', 'help'];
 
 function parseArgs(args) {
     const out = { _: [] };
@@ -53,6 +53,7 @@ Usage:
   sfn-toolkit patch <repo-path> [--force]
   sfn-toolkit scrape <url> [--out <dir>] [--no-playwright] [--wait-for <ms>]
   sfn-toolkit brand <url> --client-id <id> [--display-name <name>] [--out <dir>] [--site-id <id>]
+  sfn-toolkit apply --target <sfn-repo> --brand-dir <dir>     Apply generated brand into SFN repo
 
 Options:
   --target <path>            Target SFN repo (default: cwd)
@@ -222,6 +223,37 @@ if (cmd === 'brand') {
         stdout.write(`  - profile.env (drop into .env.profiles/${clientId}.env)\n`);
         stdout.write(`  - preview.html (open in browser to review)\n`);
         stdout.write(`\nNext: F4 will copy these into a target SFN repo automatically.\n`);
+        exit(0);
+    } catch (e) {
+        stderr.write(`Error: ${e.message}\n`);
+        exit(1);
+    }
+}
+
+if (cmd === 'apply') {
+    const target = resolve(args.target ?? '.');
+    const brandDir = args['brand-dir'];
+    if (!brandDir) {
+        stderr.write('Error: missing --brand-dir.\nUsage: sfn-toolkit apply --target <repo> --brand-dir <dir-from-brand-cmd>\n');
+        exit(1);
+    }
+    try {
+        const { applyBrand } = await import('../audit/apply-brand.mjs');
+        stderr.write(`Applying brand from ${resolve(brandDir)} to ${target} ...\n`);
+        const log = await applyBrand({ brandDir, targetRepo: target });
+        stdout.write(`\nApplied brand "${log.brandId}":\n`);
+        for (const s of log.steps) {
+            const status = s.error
+                ? `❌ ${s.error}`
+                : s.skipped
+                ? `⏭  ${s.skipped}`
+                : s.changed === false
+                ? '↪  no change'
+                : '✅';
+            const detail = s.path ? ` ${s.path}` : s.local ? ` ${s.local}` : '';
+            stdout.write(`  ${status} ${s.step}${detail}\n`);
+        }
+        stdout.write(`\nNext: cd ${target} && pnpm demo:switch ${log.brandId} && pnpm dev\n`);
         exit(0);
     } catch (e) {
         stderr.write(`Error: ${e.message}\n`);

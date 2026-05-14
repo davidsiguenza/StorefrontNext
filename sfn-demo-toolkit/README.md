@@ -18,7 +18,7 @@ Switching between client demos in dev is a single command: `pnpm demo:switch <cl
 
 ## Status
 
-🚧 **Early development — v0.4.0**. F1-F3 working. See [docs/STATUS.md](./docs/STATUS.md) for current progress.
+🚧 **Early development — v0.5.0**. F1-F4 working: full branding pipeline end-to-end. See [docs/STATUS.md](./docs/STATUS.md).
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -26,7 +26,7 @@ Switching between client demos in dev is a single command: `pnpm demo:switch <cl
 | F2 | Patches v0.3 + version drift audit + apply | ✅ |
 | F3a | Crawler ported + `scrape` command | ✅ |
 | F3b | Brand analysis pipeline → BrandContent | ✅ |
-| F4 | Apply branding (per-client artifacts) | ⏳ |
+| F4 | Apply branding (per-client artifacts) | ✅ |
 | F5 | Catalog generation + sandbox import | ⏳ |
 | F6 | Polish, docs, second-client validation | ⏳ |
 
@@ -47,25 +47,46 @@ sfn-toolkit --help
 
 ## Usage
 
-### New client demo from scratch
+### Quickstart: brand a new client end-to-end (F1-F4 working today)
+
 ```bash
-sfn-toolkit new nike-2026 --url https://nike.com --catalog fashion
+# 1. Clone a fresh SFN template (or use an existing 0.3.x clone)
+git clone https://github.com/SalesforceCommerceCloud/storefront-next-template ~/clients/nike-demo
+cd ~/clients/nike-demo
+
+# 2. Apply the branding system (UI targets + extension + demo:switch script)
+sfn-toolkit upgrade-check --target .   # confirm 13/13 anchors found
+sfn-toolkit patch .
+
+# 3. Scrape and analyze the customer site
+sfn-toolkit brand https://nike.com --client-id nike --display-name "Nike"
+# → produces .sfn-toolkit/brand/nike/{analysis.json,brand-content.ts,theme.css,profile.env,preview.html}
+
+# 4. Apply the brand into the repo
+sfn-toolkit apply --target . --brand-dir .sfn-toolkit/brand/nike
+
+# 5. Boot
+pnpm install
+pnpm demo:switch nike
+pnpm dev
 ```
 
-This produces `./nike-2026/` with a fully branded SFN clone running on `localhost:5173`.
+### Other useful commands
 
-### Rebrand an existing client repo
 ```bash
-cd ~/clients/nike-2026
-sfn-toolkit rebrand --url https://nike.com --client-id nike-2026
+sfn-toolkit scrape <url>                            # raw scrape (page.json/html/md)
+sfn-toolkit upgrade-check --target <repo>           # detect SFN version drift
+pnpm demo:switch <clientId>                         # swap the active client in dev
+pnpm demo:list                                      # list available client profiles
 ```
 
-### Check version drift
-```bash
-sfn-toolkit upgrade-check --target ~/clients/nike-2026
-```
+### Coming soon (F5+)
 
-Reports whether the target repo's SFN version matches the toolkit's patch bundle and lists any anchor mismatches.
+```bash
+sfn-toolkit new <client-id> --url <url> --catalog fashion   # one-shot: clone + patch + brand + apply + catalog
+sfn-toolkit catalog generate --industry fashion --client nike
+sfn-toolkit catalog import --target . --sandbox zzpm-048
+```
 
 ## Architecture
 
