@@ -183,7 +183,8 @@ export function collectImageCandidates($, pageUrl, onlyMainContent) {
     });
   });
 
-  const deduped = dedupeCandidates(candidates);
+  const filtered = candidates.filter((c) => !isJunkImage(c));
+  const deduped = dedupeCandidates(filtered);
   deduped.forEach((candidate) => {
     candidate.keywords = candidateKeywords(
       candidate.url,
@@ -198,6 +199,53 @@ export function collectImageCandidates($, pageUrl, onlyMainContent) {
   return deduped;
 }
 
+/**
+ * Drop images that are clearly tracking pixels, ad-tech beacons, or third-party
+ * vendor assets (cookie banners, analytics, social trackers). These have nothing
+ * to do with the brand and pollute every slot.
+ */
+function isJunkImage(candidate) {
+  const url = String(candidate.url || '').toLowerCase();
+  if (!url) return true;
+
+  // Known third-party vendor domains
+  const vendorPatterns = [
+    /(^|\/\/)cdn-[a-z0-9]+\.onetrust\.com/i,
+    /(^|\/\/)[a-z0-9.-]*onetrust\.com/i,
+    /cookielaw\.org/i,
+    /cookiebot\.com/i,
+    /(^|\/\/)[a-z0-9.-]*adnxs\.com/i,
+    /doubleclick\.net/i,
+    /googlesyndication\.com/i,
+    /google-analytics\.com/i,
+    /googletagmanager\.com/i,
+    /facebook\.com\/tr\b/i,
+    /connect\.facebook\.net/i,
+    /scorecardresearch\.com/i,
+    /pinterest\.com\/ct/i,
+    /quantserve\.com/i,
+    /bing\.com\/action/i,
+    /tiktokv?\.com.*pixel/i,
+    /linkedin\.com\/(li|px)/i,
+    /^data:image\/gif;base64,r0lgodlh/i, // 1x1 gif data URLs
+  ];
+  if (vendorPatterns.some((re) => re.test(url))) return true;
+
+  // 1x1 / very small tracking pixels with explicit dims
+  if (
+    Number.isFinite(candidate.width) &&
+    Number.isFinite(candidate.height) &&
+    candidate.width > 0 &&
+    candidate.height > 0 &&
+    candidate.width <= 4 &&
+    candidate.height <= 4
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function buildCandidate($, element, url, index, context, overrides = {}) {
   const node = $(element);
   return {
@@ -208,8 +256,21 @@ function buildCandidate($, element, url, index, context, overrides = {}) {
     index,
     source: overrides.source || element.tagName.toLowerCase(),
     classes: normalizeWhitespace(node.attr('class')) || null,
+    inHeader: isInsideHeader($, element),
     context,
   };
+}
+
+/**
+ * True when the image is inside a <header>, <nav>, or an ancestor with a
+ * class that strongly suggests a site logo (e.g. .logo, .brand, .navbar-brand).
+ * Used as a strong signal for logo slot scoring.
+ */
+function isInsideHeader($, element) {
+  const node = $(element);
+  if (node.closest('header, nav').length > 0) return true;
+  if (node.closest('[class*="logo" i], [class*="brand" i], [class*="navbar" i]').length > 0) return true;
+  return false;
 }
 
 function dedupeCandidates(candidates) {

@@ -120,15 +120,32 @@ async function tryPlaywright(url, options) {
     });
     const page = await browser.newPage({
       userAgent: DEFAULT_USER_AGENT,
+      viewport: { width: 1440, height: 900 },
     });
 
     await page.goto(url, {
       timeout: options.timeoutMs,
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
     });
+
+    // Try to settle network — but tolerate timeout (some sites keep long-poll connections)
+    try {
+      await page.waitForLoadState('networkidle', { timeout: 8000 });
+    } catch {
+      // continue anyway
+    }
+
+    // Best-effort cookie / consent banner dismissal — many SPAs hide their hero behind it
+    await dismissCommonBanners(page).catch(() => {});
+
+    // Trigger lazy-loaded sections by scrolling. Most retail homes lazy-load below the fold.
+    await scrollToBottomThenTop(page).catch(() => {});
 
     if (options.waitFor > 0) {
       await page.waitForTimeout(options.waitFor);
+    } else {
+      // small wait so any post-scroll lazy hydration can settle
+      await page.waitForTimeout(750);
     }
 
     const html = await page.content();
@@ -158,6 +175,68 @@ async function tryPlaywright(url, options) {
 
 function isFileUrl(value) {
   return typeof value === 'string' && value.startsWith('file://');
+}
+
+/**
+ * Best-effort cookie / consent / region-selector banner dismissal.
+ * Tries common selectors used by OneTrust, Cookiebot, Quantcast, plus generic
+ * "Accept all" / "Aceptar" buttons. Silent on failure — banners that can't be
+ * dismissed will just leave their content in the DOM.
+ */
+async function dismissCommonBanners(page) {
+  const selectors = [
+    // OneTrust
+    '#onetrust-accept-btn-handler',
+    '#onetrust-reject-all-handler',
+    'button[aria-label*="Aceptar" i]',
+    'button[aria-label*="Accept" i]',
+    // Cookiebot
+    '#CybotCookiebotDialogBodyButtonAccept',
+    '#CybotCookiebotDialogBodyLevelButtonAccept',
+    // Quantcast
+    '.qc-cmp2-summary-buttons button[mode="primary"]',
+    // Didomi
+    '#didomi-notice-agree-button',
+    // Generic "accept" / "aceptar" buttons
+    'button:has-text("Aceptar todo")',
+    'button:has-text("Aceptar todas")',
+    'button:has-text("Accept all")',
+    'button:has-text("I agree")',
+    'button:has-text("Got it")',
+    'button:has-text("OK")',
+  ];
+
+  for (const sel of selectors) {
+    try {
+      const locator = page.locator(sel).first();
+      if (await locator.count() > 0 && await locator.isVisible({ timeout: 500 })) {
+        await locator.click({ timeout: 1500 });
+        await page.waitForTimeout(400);
+        return;
+      }
+    } catch {
+      // try next selector
+    }
+  }
+}
+
+/**
+ * Scroll to the bottom in steps, then back up. Triggers lazy-loaded
+ * content (hero carousels, image sliders, below-the-fold sections) that
+ * many SPAs only hydrate when intersection observers fire.
+ */
+async function scrollToBottomThenTop(page) {
+  await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const distance = 800;
+    const max = document.body.scrollHeight;
+    for (let y = 0; y < max; y += distance) {
+      window.scrollTo(0, y);
+      await sleep(150);
+    }
+    window.scrollTo(0, 0);
+    await sleep(200);
+  });
 }
 
 async function loadOptionalModule(specifier) {

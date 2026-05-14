@@ -185,20 +185,50 @@ function buildContentKey(candidate) {
 
 function scoreCandidate(candidate) {
   const keywords = candidate.keywords || '';
+  const url = String(candidate.url || '').toLowerCase();
   const landscapeScore = scoreLandscape(candidate);
   const topOfPageBonus = Math.max(0, 24 - (candidate.index || 0) * 4);
+
+  const isSvg = /\.svg(\?|$)/i.test(url);
+  const isLikelyLogoUrl = /\/logo|\/logos\/|\/wordmark|\/brand-mark|\/header\/|\/icons\//.test(url);
+  const isCookieBannerAsset =
+    /onetrust|cookielaw|cookie-consent|cookiebot|cybot|qc-cmp|didomi|trustarc|consent[-_/]/i.test(url);
+  const isFavicon = /favicon|apple-touch|android-chrome|powered_by/i.test(url);
+  const isTrustBadge =
+    /norton[-_]?certificate|sello[-_]?confianza|trust[-_]?badge|secure[-_]?(seal|badge)|verisign|mcafee[-_]?secure|ssl[-_]?certificate/i.test(
+      url,
+    );
+  const isTinyImg =
+    Number.isFinite(candidate.width) && Number.isFinite(candidate.height) &&
+    candidate.width > 0 && candidate.height > 0 &&
+    candidate.width < 240 && candidate.height < 240;
+
+  // For non-logo slots, SVGs and known logo/icon URLs are almost always wrong.
+  const nonLogoPenalty =
+    (isSvg ? -60 : 0) +
+    (isLikelyLogoUrl ? -45 : 0) +
+    (isCookieBannerAsset ? -200 : 0) +
+    (isFavicon ? -120 : 0) +
+    (isTrustBadge ? -200 : 0) +
+    (isTinyImg ? -30 : 0);
 
   return {
     logo:
       topOfPageBonus +
       landscapeScore * -0.15 +
+      (candidate.inHeader ? 60 : 0) +
       keywordScore(keywords, ['logo', 'brand', 'wordmark', 'header'], 40) +
-      keywordScore(keywords, ['svg'], 30) +
+      (isSvg ? 30 : 0) +
+      (isLikelyLogoUrl ? 25 : 0) +
+      (isCookieBannerAsset ? -200 : 0) +
+      (isFavicon ? -100 : 0) +
       keywordScore(keywords, ['hero', 'banner', 'desktop', 'homepage'], -20) +
-      keywordScore(keywords, ['icon', 'chevron', 'flexa', 'arrow'], -25),
+      keywordScore(keywords, ['icon', 'chevron', 'flexa', 'arrow'], -25) +
+      keywordScore(keywords, ['certificate', 'badge', 'powered_by', 'norton'], -150),
     hero:
       landscapeScore +
       topOfPageBonus +
+      nonLogoPenalty +
       keywordScore(keywords, ['hero', 'banner', 'homepage', 'desktop', '_desktop', 'carousel', 'slider'], 22) +
       keywordScore(keywords, ['.mp4', '.webm', 'video', 'movie'], -100) +
       keywordScore(
@@ -223,6 +253,7 @@ function scoreCandidate(candidate) {
       ),
     newArrivals:
       landscapeScore +
+      nonLogoPenalty +
       keywordScore(keywords, ['.mp4', '.webm', 'video', 'movie'], -100) +
       keywordScore(
         keywords,
@@ -232,14 +263,16 @@ function scoreCandidate(candidate) {
       keywordScore(keywords, ['mobile', '_mobile', 'logo', 'icon', 'chevron', 'flexa', 'arrow', 'breadcrumb'], -25),
     women:
       landscapeScore +
+      nonLogoPenalty +
       keywordScore(keywords, ['.mp4', '.webm', 'video', 'movie'], -100) +
-      keywordScore(keywords, ['women', 'woman', 'mujer', 'female', 'ladies'], 30) +
-      keywordScore(keywords, ['men', 'man', 'hombre'], -12),
+      keywordScore(keywords, ['women', 'woman', 'mujer', 'female', 'ladies', 'girl', 'nina'], 30) +
+      keywordScore(keywords, ['men', 'man', 'hombre', 'boy', 'nino'], -12),
     men:
       landscapeScore +
+      nonLogoPenalty +
       keywordScore(keywords, ['.mp4', '.webm', 'video', 'movie'], -100) +
-      keywordScore(keywords, ['men', 'man', 'hombre', 'male'], 30) +
-      keywordScore(keywords, ['women', 'woman', 'mujer'], -12),
+      keywordScore(keywords, ['men', 'man', 'hombre', 'male', 'boy', 'nino'], 30) +
+      keywordScore(keywords, ['women', 'woman', 'mujer', 'girl', 'nina'], -12),
   };
 }
 
@@ -539,14 +572,56 @@ function buildImageSlot(candidate, options) {
   };
 }
 
+// Banner / consent / utility copy fragments that should never end up in hero titles.
+const NOISE_PATTERNS = [
+  /remember (my |your )?selection/i,
+  /click here/i,
+  /accept (all )?cookies/i,
+  /aceptar (todas? )?(las )?cookies/i,
+  /cookie policy/i,
+  /pol[ií]tica de (privacidad|cookies)/i,
+  /privacy policy/i,
+  /change your (region|country|language)/i,
+  /select your (country|region|language|preferred|preferencias)/i,
+  /change region/i,
+  /skip to (content|main)/i,
+  /^select$/i,
+  /^aceptar$/i,
+  /^continue$/i,
+  /^continuar$/i,
+  /shipping to/i,
+  /env[íi]os a/i,
+  /sign in/i,
+  /iniciar sesi[oó]n/i,
+  /add to cart/i,
+  /a[ñn]adir al carrito/i,
+  /^https?:\/\//i, // a URL leaked into a title
+  /^[a-z0-9_-]+\.(jpg|jpeg|png|webp|svg|gif)$/i, // a filename leaked into a title
+];
+
+function isNoiseText(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return true;
+  if (trimmed.length > 220) return true;
+  if (trimmed.length < 3) return true;
+  return NOISE_PATTERNS.some((re) => re.test(trimmed));
+}
+
 function firstMeaningful(values) {
-  return values.map((value) => normalizeWhitespace(value)).find((value) => value && value.length > 0) || '';
+  return (
+    values
+      .map((value) => normalizeWhitespace(value))
+      .find((value) => value && value.length > 0 && !isNoiseText(value)) || ''
+  );
 }
 
 function firstRelevantLink(links = []) {
   return (links || []).find((link) => {
     const text = normalizeWhitespace(link.text || '').toLowerCase();
-    return text && text.length <= 30 && !['search', 'menu', 'close'].includes(text);
+    if (!text || text.length > 30) return false;
+    if (['search', 'menu', 'close'].includes(text)) return false;
+    if (isNoiseText(text)) return false;
+    return true;
   });
 }
 
