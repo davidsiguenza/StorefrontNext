@@ -15,7 +15,7 @@ See [docs/CLAUDE-BRANDING-PLAYBOOK.md](./docs/CLAUDE-BRANDING-PLAYBOOK.md) for t
 
 ## Status
 
-🚧 **Early development — v0.6.0**. F1-F4 working; first real customer (Mayoral) validated end-to-end. See [docs/STATUS.md](./docs/STATUS.md).
+🚧 **Early development — v0.7.0**. F1-F5 working; Mayoral demo end-to-end with multi-image catalog (40 products, 780 jpgs in 5 sizes). See [docs/STATUS.md](./docs/STATUS.md).
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -24,7 +24,7 @@ See [docs/CLAUDE-BRANDING-PLAYBOOK.md](./docs/CLAUDE-BRANDING-PLAYBOOK.md) for t
 | F3a | Crawler ported + `scrape` command | ✅ |
 | F3b | Brand analysis pipeline → BrandContent | ✅ |
 | F4 | Apply branding (per-client artifacts) | ✅ |
-| F5 | Catalog generation + sandbox import | ⏳ |
+| F5 | Catalog (reference scripts; CLI wrapper TODO) | 🟢 |
 | F6 | Polish, docs, second-client validation | ⏳ |
 
 ## Install (when published)

@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.6.0** (F1-F4 complete; first real-customer run validated on Mayoral)
+Current version: **0.7.0** (F1-F5 reference implementation complete on Mayoral incl. multi-image catalog)
 
 ## Phases
 
@@ -69,9 +69,22 @@ Current version: **0.6.0** (F1-F4 complete; first real-customer run validated on
   documenting every brand-aware token to override (and the gotchas like
   `--accent` being a hover surface, not a brand color).
 
-### F5 — Catalog ⏳
-- Generator (templates per industry: fashion, food, beauty, generic)
-- Importer wrapper around b2c-cli site-import-export
+### F5 — Catalog 🟢 (reference implementation done; CLI wrapper pending)
+- Reference Python scripts in `catalog/scripts/` covering the full
+  pipeline: PLP scrape → PDP enrichment → multi-size image download →
+  SFCC site archive generation → manual BM import.
+- Validated end-to-end on Mayoral (May 2026): 40 products, 780 images
+  in 5 sizes (hi-res/large/medium/small/swatch), multi-image galleries
+  in PDP (3-6 views per product).
+- Site archive XML schema gotchas documented in
+  `docs/CLAUDE-BRANDING-PLAYBOOK.md` (parent-before-position in category,
+  no available-flag in product, list-id on header not list, no xml:lang
+  in inventory description, etc.).
+- Skill `sfn-brand-demo` updated with full catalog phase + pitfalls.
+- `catalog/README.md` documents the reference scripts for reuse.
+- TODO: wrap as `sfn-toolkit catalog generate <url>` and
+  `sfn-toolkit catalog package` CLI commands. Until then, scripts run
+  manually per client.
 
 ### F6 — Polish ⏳
 - End-to-end docs, troubleshooting playbook, demo gif

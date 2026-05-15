@@ -160,6 +160,84 @@ Open `http://localhost:5173`. Walk through:
 
 If something is off, iterate on `content.ts` / `theme.css` and refresh.
 
+### 8. Catalog (optional but recommended for client demos)
+
+Without a real catalog the PLP/PDP show whatever the sandbox already had,
+which kills realism. Build one:
+
+a) **Discover and select products from the customer site** (10-15 min):
+   - Use Playwright via `sfn-toolkit scrape` on each PLP to find real product
+     image URLs (look for the `assets.<brand>.com/.../<sku>-XL-N/<slug>.jpg`
+     pattern).
+   - Group by SKU/variant id. Pick 5-8 products per category. Store the PDP
+     URL for each (usually visible as `<a href>` in the PLP HTML).
+
+b) **Scrape each PDP** to get all available views (XL-1..XL-N). PLPs only
+   preload 1-2 images per product — PDPs expose 4-6 (front, back, detail,
+   lifestyle, model). 40 PDP fetches take ~3-4 min.
+
+c) **Download every view in 5 sizes** (hi-res 2200, large 1200, medium 600,
+   small 280, swatch 80). Total ~700-1000 jpgs for a 40-product catalog.
+
+d) **Generate a SFCC site archive** with strict XML schema compliance:
+   - `catalogs/<id>/catalog.xml` with proper child order: in `<category>`,
+     `<parent>` MUST come before `<position>`. In `<product>`, do NOT use
+     `<available-flag>` (it doesn't exist; use `<online-flag>` only).
+   - `pricebooks/pricebook.xml` with EUR/USD prices.
+   - `inventory-lists/<id>.xml` with the schema:
+     `<inventory-list><header list-id="...">...</header><records>...</records></inventory-list>`.
+     The `list-id` attribute goes on `<header>`, NOT on `<inventory-list>`.
+     Inventory `<description>` is a simple type — no `xml:lang`, plain text.
+   - `sites/<siteId>/preferences.xml` with the pricebook bindings (under
+     `<standard-preferences><all-instances>` not `<custom-preferences>`).
+   - `meta-data.xml` at the archive root.
+   - Static images at
+     `catalogs/<id>/static/default/images/<variantId>/<size>/<variantId>-XL-<n>.jpg`.
+
+e) **5 image-groups per product** in catalog.xml, each pointing to a
+   different size folder:
+   ```xml
+   <images>
+     <image-group view-type="hi-res">
+       <image path="<vid>/hi-res/<vid>-XL-4.jpg" />
+       <image path="<vid>/hi-res/<vid>-XL-5.jpg" />
+       <image path="<vid>/hi-res/<vid>-XL-6.jpg" />
+     </image-group>
+     <image-group view-type="large">...</image-group>
+     <image-group view-type="medium">...</image-group>
+     <image-group view-type="small">...</image-group>
+     <image-group view-type="swatch">
+       <image path="<vid>/swatch/<vid>-XL-<first-view>.jpg" />
+     </image-group>
+   </images>
+   ```
+   Multiple `<image>` per group (except swatch) gives PDP a real gallery,
+   not a single hero shot. PLP uses `medium`. PDP zoom uses `hi-res`.
+
+f) **Site creation in BM is manual** — the SFCC site-import job CANNOT
+   create new sites. Ask the user to:
+   1. BM → Administration → Sites → Manage Sites → New
+   2. Site ID matching exactly the one in `sites/<siteId>/` (case-sensitive)
+   3. Locale, currency, timezone matching the client market
+
+g) **Import the ZIP** via BM → Site Import & Export → Upload + Import.
+
+h) **Manual bindings in BM after import** (these can't go in preferences.xml
+   because they're direct site attributes):
+   1. BM → Sites → `<siteId>` → Site Configuration:
+      - **Storefront Catalog** → select `<catalog-id>`
+      - **Storefront Inventory List** → select `<inventory-list-id>`
+   2. Save.
+   3. Pricebook bindings should already apply via preferences.xml.
+
+i) **Update the env profile** to point at the new site:
+   `PUBLIC__app__defaultSiteId=<siteId>` plus the `commerce.sites` array
+   with the locales the new site supports. Restart `pnpm dev`.
+
+After all this, the PLP shows real customer products with proper images,
+PDP has a real gallery, prices and stock display correctly, and the demo
+becomes credible.
+
 ## Common pitfalls (Mayoral run, May 2026)
 
 1. **Heuristic crawler picks up cookie banner content.** The `sfn-toolkit
@@ -174,6 +252,28 @@ If something is off, iterate on `content.ts` / `theme.css` and refresh.
    Putting brand color there makes every hover look like an error.
 5. **Logo SVGs already have brand colors** — when overriding the header for
    a brand whose logo isn't black, set `--header-logo-filter: none`.
+
+### Catalog phase pitfalls
+
+6. **`site-import` job cannot create sites.** It only writes data to existing
+   ones. The user must create the new site in BM first. Don't ship a
+   `site.xml` root-level descriptor — it's not a valid input shape.
+7. **Schema is strict, child order matters.** In `<category>`, `<parent>`
+   must come BEFORE `<position>`. In `<product>`, `<available-flag>` doesn't
+   exist (only `<online-flag>` and `<searchable-flag>`).
+8. **Inventory `list-id` goes on `<header>`**, not on `<inventory-list>`.
+   Inventory `<description>` rejects `xml:lang` (plain text only, unlike
+   catalog/pricebook descriptions).
+9. **Storefront catalog and inventory list bindings are NOT in
+   preferences.xml.** They are direct site attributes set in BM after
+   import. Pricebook can go in preferences (under `standard-preferences`
+   `all-instances` `SiteAssignablePriceBooks` and `SiteApplicablePriceBooks`).
+10. **PLPs only preload 1-2 images per product.** To get a real PDP gallery
+    you have to also scrape each PDP. The view numbers are non-contiguous
+    (some products only have 4,5,6; others 1,2,3,4,5,6).
+11. **Cloudinary URLs preserve aspect ratio** — pass `f_auto,q_auto,w_<n>`
+    and you get any width on demand. No need for the original `t_web_plp_750`
+    transform; it just locks you to one size.
 
 ## Output: a complete, branded demo
 

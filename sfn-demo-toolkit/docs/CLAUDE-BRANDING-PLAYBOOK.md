@@ -261,6 +261,125 @@ If everything is fine = ship it.
 
 ---
 
+## Phase 5: Catalog (optional, recommended for client demos)
+
+Without a real catalog, PLP/PDP show whatever the sandbox already had. Total
+killer of credibility. Build a real one for the customer.
+
+### Pipeline
+
+1. **PLP scrape** — use `sfn-toolkit scrape` with `--wait-for 4000` on each
+   category URL. Look for the pattern
+   `https://assets.<brand>.com/.../v<version>/<sku>-XL-<view>/<slug>.jpg`.
+   Group by `<sku>-<color>` to get unique variants. Pick 5-8 per category.
+
+2. **Capture PDP URLs** — they're in the PLP HTML as `<a href="...">`.
+   Pattern is usually `/<locale>/<slug>-<numeric-id>-<n>` where the
+   numeric id is the variantId with dashes removed.
+
+3. **PDP scrape (per product)** — PLPs only preload 1-2 image views; PDPs
+   expose 4-6 (front/back/detail/lifestyle/model). 40 PDPs at ~5s each =
+   ~3-4 min total. Cache results so the script is resumable.
+
+4. **Multi-size download** — for each (variantId, view) pair, fetch:
+
+   | Group | Width | Use |
+   |---|---|---|
+   | `hi-res` | 2200 | PDP zoom |
+   | `large` | 1200 | PDP main |
+   | `medium` | 600 | PLP tile |
+   | `small` | 280 | Cart, mini-cart |
+   | `swatch` | 80 | Color picker (single image, not a gallery) |
+
+   Cloudinary URLs accept any width via `f_auto,q_auto,w_<n>` so just
+   substitute the width parameter. ~700-1000 jpgs per 40-product catalog.
+
+5. **Generate the SFCC site archive** following this structure:
+
+   ```
+   mayoral.zip/mayoral/
+   ├── meta-data.xml
+   ├── catalogs/<catalog-id>/
+   │   ├── catalog.xml
+   │   └── static/default/images/<vid>/<size>/<vid>-XL-<n>.jpg
+   ├── pricebooks/pricebook.xml
+   ├── inventory-lists/<list-id>.xml
+   └── sites/<siteId>/preferences.xml
+   ```
+
+### XML schema landmines
+
+The site-import job validates each XML strictly. From the Mayoral run:
+
+**catalog.xml (`impex/catalog/2006-10-31`):**
+- In `<category>`: child order is `display-name → description → online-flag
+  → online-from → online-to → parent → position → ...`. Putting `<parent>`
+  AFTER `<position>` fails with `cvc-complex-type.2.4.a`.
+- In `<product>`: `<available-flag>` doesn't exist. Use `<online-flag>` and
+  `<searchable-flag>` only.
+
+**inventory.xml (`impex/inventory/2007-05-31`):**
+- `list-id` is an attribute of `<header>`, NOT of `<inventory-list>`.
+- `<description>` is a simple type — no `xml:lang` allowed (plain text).
+
+**preferences.xml (`impex/preferences/2007-03-31`):**
+- Standard preferences `SiteAssignablePriceBooks` and
+  `SiteApplicablePriceBooks` go under `<standard-preferences><all-instances>`,
+  not `<custom-preferences>`. `mayoral-list-prices-EUR` works as a value.
+
+**site.xml (`impex/site/2007-04-09`):**
+- DO NOT ship a `sites/<id>/site.xml` for new-site creation. The job rejects
+  it because `site-import` cannot create sites. Have the user create the
+  site in BM first; ship only `preferences.xml` to bind data.
+
+### Multi-image image-groups
+
+```xml
+<images>
+  <image-group view-type="hi-res">
+    <image path="<vid>/hi-res/<vid>-XL-4.jpg" />
+    <image path="<vid>/hi-res/<vid>-XL-5.jpg" />
+    <image path="<vid>/hi-res/<vid>-XL-6.jpg" />
+  </image-group>
+  <image-group view-type="large">
+    <image path="<vid>/large/<vid>-XL-4.jpg" />
+    ...
+  </image-group>
+  <image-group view-type="medium">...</image-group>
+  <image-group view-type="small">...</image-group>
+  <image-group view-type="swatch">
+    <image path="<vid>/swatch/<vid>-XL-<first-view>.jpg" />
+  </image-group>
+</images>
+```
+
+The catalog `<header>` should declare `<image-settings>
+<internal-location base-path="/images" /></image-settings>` so SFCC resolves
+those paths under `static/default/images/`.
+
+### BM steps the user must do
+
+1. **Create the site** (Administration → Sites → Manage Sites → New). Site
+   ID matching exactly the one in `sites/<id>/`. Set locale, currency,
+   timezone for the client market.
+2. **Site Import & Export → Import** the ZIP.
+3. **Site Configuration after import**:
+   - Storefront Catalog → select the imported catalog
+   - Storefront Inventory List → select the imported inventory list
+4. **Verify pricebook binding** in Site Preferences (should auto-apply via
+   preferences.xml; if not, set manually).
+
+### Update the env profile
+
+After import, switch the brand `.env.profiles/<id>.env` to:
+```
+PUBLIC__app__defaultSiteId=<NewSiteId>
+```
+and the `commerce.sites` array with the supported locales of the new site.
+Restart `pnpm dev`.
+
+---
+
 ## Quick reference: the Mayoral run
 
 For posterity, what worked:
