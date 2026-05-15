@@ -1,66 +1,185 @@
 ---
 name: sfn-brand-demo
-description: Build a branded Salesforce Storefront Next demo for a specific customer. Clones the official SFN template, applies the branding system patches, scrapes the customer website, generates content/theme/profile per client, and (optionally) generates and imports a product catalog. Use when the user says "create a Storefront Next demo for <customer>", "brand a SFN demo from a URL", "set up a new SFN client", or similar. Powered by the sfn-demo-toolkit (https://github.com/davidsiguenza/sfn-demo-toolkit).
+description: Build a high-quality, branded Salesforce Storefront Next demo for a specific customer. Claude orchestrates the whole flow — clones the SFN template, applies the branding system patches via sfn-toolkit, then **personally curates** the per-client content (hero copy, featured cards, palette, real customer assets) instead of relying on heuristic scrapers. Use when the user says "create a Storefront Next demo for <customer>", "brand a SFN demo from a URL", "set up a new SFN client", or similar.
 ---
 
 # SFN Brand Demo Skill
 
-This skill orchestrates a complete Storefront Next demo build for a customer.
-It is the user-facing wrapper around the `sfn-toolkit` CLI.
+This skill turns a customer URL into a branded Storefront Next demo. The
+**`sfn-toolkit` CLI** does the mechanical parts (cloning, patching, registering
+files). **Claude does the creative parts** (reading the customer site,
+selecting the right images, writing the copy, picking the palette).
 
-## When to invoke
+## Core principle: Claude is the designer
 
-The user is asking to spin up a Storefront Next storefront customized for a specific customer (often by URL). Examples:
-- "Create a SFN demo for nike.com"
-- "I need a branded Storefront Next demo for Acme"
-- "Bootstrap a new client demo from this URL"
+The toolkit ships a heuristic scraper, but it produces poor results on most
+modern sites (SPAs, lazy-loaded content, generic image filenames). **Don't rely
+on it for content quality.** Use it only to discover assets; then write
+`content.ts` and `theme.css` yourself with real care.
 
-If the user only wants to rebrand an existing repo (already cloned), use the `rebrand` flow instead of `new`.
+The full flow is:
 
-## Inputs to gather
+```
+[CLI: scaffold]    sfn-toolkit patch  →  branding extension installed
+[CLAUDE: research] WebFetch + curl    →  understand brand, find images
+[CLAUDE: curate]   write content.ts   →  Spanish/EN copy that matches the site
+[CLAUDE: curate]   write theme.css    →  override brand-aware tokens
+[CLAUDE: curate]   download assets    →  real customer images
+[CLI: register]    sfn-toolkit apply  →  wires files into the repo
+                   pnpm dev           →  validate visually
+```
 
-Before doing anything, ask the user (use AskUserQuestion):
+## Inputs to gather (use AskUserQuestion)
 
-1. **Customer URL** — the public site to scrape for branding (e.g. https://nike.com)
-2. **Client id** — short kebab-case slug (e.g. `nike-2026`)
-3. **Target folder** — where to clone (default: current working dir + `/<client-id>`)
-4. **Catalog industry** — fashion/food/beauty/generic (or skip)
-5. **Sandbox credentials** — only if catalog import is requested
+Before doing anything:
 
-## Flow (skill orchestrates)
+1. **Customer URL** (e.g. `https://www.mayoral.com/es/es/`) — the public site
+2. **Client id** — short kebab-case slug (e.g. `mayoral`, `nike-2026`)
+3. **Display name** — human-readable brand name
+4. **Target folder** — where to clone (default: cwd + `/<client-id>`)
+5. **Reuse existing sandbox?** — typically yes; ask the path to an existing
+   working `.env` (e.g. `~/Documents/SFNenablement/DSPMarketStreet-zzpm048/.env`)
+   so Claude can copy the SCAPI credentials with `--inherit-env`. If no, the
+   user must fill them manually.
 
-1. **Pre-check**: confirm sfn-toolkit is installed (`sfn-toolkit --version`). If not, show install instructions and stop.
+## Step-by-step playbook
 
-2. **Clone**: `sfn-toolkit new <client-id> --url <url> --target <path>` does:
-   - `git clone storefront-next-template <target>`
-   - Audits SFN version vs supported patches
-   - If drift detected, surface diff and ASK USER before continuing
+### 1. Pre-check
+- Confirm `sfn-toolkit --version` works. If not, link it: `cd <toolkit-repo> && npm link`.
+- Ask the user the inputs above.
 
-3. **Apply branding system**: same `sfn-toolkit new` step continues:
-   - Applies `patches/v0.X/` to the target repo
-   - Adds `src/extensions/branding/`, demo-switch script, .env.profiles/
+### 2. Scaffold the repo
+```bash
+git clone https://github.com/SalesforceCommerceCloud/storefront-next-template <target>
+cd <target>
+sfn-toolkit upgrade-check --target .   # confirm anchors found
+sfn-toolkit patch .
+```
+If `upgrade-check` reports drift, **stop** and surface to the user — don't
+force-apply on an unsupported version.
 
-4. **Scrape & propose**: runs the crawler:
-   - Reads the URL, extracts logo/colors/copy/imagery
-   - Writes `<target>/.webcrawler/<clientId>/analysis.json` + `preview.html`
-   - **STOP and present the proposal to the user via AskUserQuestion** — let them tweak before applying
+### 3. Research the brand (Claude does this)
 
-5. **Apply branding**: writes `clients/<clientId>/content.ts`, `theme.css`, `.env.profiles/<clientId>.env`. Downloads logo to `public/images/brands/<clientId>/`.
+Two complementary approaches:
 
-6. **Catalog (optional)**: generates CSVs, optionally imports via b2c-cli.
+a) **WebFetch the customer URL** with a structured prompt asking for:
+   - brand positioning, target audience, tone
+   - palette guess (often the LLM can only see textual content; that's OK)
+   - hero/banner section copy and CTAs
+   - featured categories and their copy
+   - editorial/about block
+   - slogan/claim
+   - language and tone
 
-7. **Boot dev**: runs `pnpm install && pnpm dev` and reports `localhost:5173`.
+b) **curl the URL directly** to get the raw HTML and:
+   - Grep for `#[0-9a-fA-F]{6}` to find actual hex colors. The most-frequent
+     vivid colour is usually the primary CTA.
+   - Grep for asset URLs (`assets.<brand>.com`, `cdn.<brand>.com`,
+     `<brand>.com/_next/image?url=...`) to find real image filenames
+   - Look for the actual logo URL (often `<header>` or `<a class="logo">`)
 
-## Important behaviors
+> **Important:** the toolkit's `sfn-toolkit scrape` and `brand` commands
+> exist but are weak on modern SPAs. Treat their output as a hint, not the
+> source of truth.
 
-- **Never overwrite** an existing client folder without explicit user confirmation.
-- **Always commit** patches and per-client artifacts in separate commits with descriptive messages.
-- **Surface version drift** clearly; if anchors fail, do NOT proceed silently — pause and ask.
-- **Catalog credentials** (sandbox dw.json, SLAS) should only be requested when the user wants import; otherwise generate CSVs and stop.
+### 4. Run the toolkit's brand command (optional, for hints)
+```bash
+sfn-toolkit brand <url> --client-id <id> --display-name "<name>"
+```
+This produces `.sfn-toolkit/brand/<id>/{analysis.json, brand-content.ts, theme.css, profile.env}`.
 
-## After-skill checklist for the user
+The `analysis.json` is useful as **evidence of what the scraper found** (image
+URLs, color tokens picked up). The generated `brand-content.ts` is usually
+poor — replace it.
 
-- Verify `<html data-brand="<clientId>">` in DevTools
-- Verify hero/cards content matches the proposal
-- Verify primary color reflects the scraped palette
-- If catalog imported: visit `/category/root` and confirm products
+### 5. Apply (registers files mechanically)
+```bash
+sfn-toolkit apply --target . --brand-dir .sfn-toolkit/brand/<id> \
+  --inherit-env <path-to-existing-working-.env>
+```
+This:
+- copies `brand-content.ts`, `theme.css`, `profile.env` into the right places
+- registers the client in `registry.ts` and `themes.css`
+- downloads the logo (if URL works) to `public/images/brands/<id>/logo.<ext>`
+- bootstraps `.env` if missing (with credentials inherited if `--inherit-env`)
+
+### 6. **Claude rewrites the curated content** (the heart of the skill)
+
+After step 5 the registration is done but the content is mediocre. Now:
+
+a) **Write `src/extensions/branding/clients/<id>/content.ts`** by hand, using
+   the research from step 3:
+   - Each hero slide: title in the brand's language, real subtitle from the
+     site, real CTA text, link to a relevant category
+   - Featured cards: pick the actual primary categories (boys/girls,
+     newborn/teen, etc.). Use real category copy, not "Discover Women."
+   - TextOnly card: use the brand's actual slogan or editorial line
+
+b) **Download real assets** from the customer's CDN to
+   `public/images/brands/<id>/`. Example for Mayoral:
+   ```bash
+   curl -sLA "<browser-UA>" \
+     "https://assets.mayoral.com/.../mayoral-newborn-recien-nacido-v26.jpg" \
+     -o public/images/brands/mayoral/hero-newborn.jpg
+   ```
+   Update `content.ts` `imageUrl` fields to `/images/brands/<id>/<filename>`.
+
+c) **Rewrite `src/extensions/branding/clients/<id>/theme.css`** with proper
+   token overrides. **CRITICAL** lessons learned (see
+   `docs/CLAUDE-BRANDING-PLAYBOOK.md`):
+
+   - `--accent` is the **hover/highlight** surface (outline buttons,
+     dropdowns, hovered cards). It MUST be a low-saturation neutral. Putting
+     a vivid brand color here makes every hover look broken.
+   - `--primary` drives the main CTAs everywhere (Add to Cart, etc.)
+   - For PDP swatches (variant selectors) override `--swatch-bg-selected`,
+     `--swatch-border-selected`, `--swatch-text-selected`,
+     `--swatch-color-border-hover`. Without this, swatches stay
+     template-default black.
+   - For "Write a Review"-type buttons override `--brand-primary` and
+     `--brand-primary-hover`.
+   - For the focus ring override `--ring` and `--focus`.
+   - For mobile menus override `--sidebar-primary`, `--sidebar-ring`.
+   - For non-default header styles (e.g. white instead of template's black),
+     override the `--header-*` family AND set `--header-logo-filter: none`
+     so the logo SVG renders with its native colors.
+
+   Always check the brand's **PLP and PDP** visually after — that's where
+   incomplete theming bites.
+
+### 7. Validate
+```bash
+pnpm install   # if not already
+pnpm demo:switch <id>
+pnpm dev
+```
+Open `http://localhost:5173`. Walk through:
+- **Home**: hero, featured cards, footer logo all show the brand
+- **PLP**: hover state on product tiles is neutral, not coloured
+- **PDP**: swatches, "Add to Cart", "Add to Wishlist" all in brand color
+
+If something is off, iterate on `content.ts` / `theme.css` and refresh.
+
+## Common pitfalls (Mayoral run, May 2026)
+
+1. **Heuristic crawler picks up cookie banner content.** The `sfn-toolkit
+   brand` command may extract OneTrust banner copy ("Remember my selection",
+   "Click here") and trust badges (norton-certificate.png) as hero content
+   on SPAs. Always replace.
+2. **Header has TWO logo variants in v0.4** (mobile-simplified for checkout +
+   desktop). The patch wraps both via `replace-anchor` with `all: true`.
+3. **Footer logo is separate** from header — it has its own `UITarget`
+   (`footer.logo`) and its own component (`branded-footer-logo.tsx`).
+4. **`--accent` token is NOT a brand color.** It's the UI hover surface.
+   Putting brand color there makes every hover look like an error.
+5. **Logo SVGs already have brand colors** — when overriding the header for
+   a brand whose logo isn't black, set `--header-logo-filter: none`.
+
+## Output: a complete, branded demo
+
+When done, the user can:
+- `pnpm demo:switch <id>` to swap brands instantly in dev
+- Add more clients without touching core code (just clone the same
+  pattern in `clients/<new-id>/`)
+- Upgrade SFN later (the patches are self-documented via
+  `@sfdc-extension-line SFDC_EXT_BRANDING` markers)

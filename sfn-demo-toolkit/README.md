@@ -1,24 +1,21 @@
 # sfn-demo-toolkit
 
-Toolkit to bootstrap and brand Salesforce Storefront Next (SFN) demos for customers, end-to-end.
+Toolkit + Claude Code skill to bootstrap and brand Salesforce Storefront Next (SFN) demos for customers, end-to-end.
 
 ## What it does
 
-Given a customer URL, the toolkit takes a fresh clone of the official Storefront Next template and turns it into a branded demo:
+The toolkit splits responsibility cleanly:
 
-1. Clones the upstream SFN template
-2. Applies the **branding system** (a non-invasive extension that exposes UI targets for logo, hero, featured content; switches by env var)
-3. Scrapes the customer website (logo, colors, copy, imagery)
-4. Generates `clients/<id>/content.ts` + `theme.css` + `.env.profiles/<id>.env`
-5. Downloads logo and assets locally
-6. (Optional) Generates a product catalog and imports it into a sandbox via b2c-cli
-7. Boots `pnpm dev` for instant validation
+- **CLI (`sfn-toolkit`)** — does the mechanical steps: clones the SFN template, applies a non-invasive branding extension via anchor-based patches, registers per-client files in the right places.
+- **Claude (via the [`sfn-brand-demo`](./skill/sfn-brand-demo/SKILL.md) skill)** — does the creative steps: visits the customer site, picks the real images, writes the right copy in the brand's language, designs the palette using the actual hex codes from the customer's HTML.
 
-Switching between client demos in dev is a single command: `pnpm demo:switch <clientId>`.
+The result is a per-client folder under `src/extensions/branding/clients/<id>/` with `content.ts`, `theme.css` and an `.env.profiles/<id>.env`. Switching between clients in dev is a single command: `pnpm demo:switch <clientId>`.
+
+See [docs/CLAUDE-BRANDING-PLAYBOOK.md](./docs/CLAUDE-BRANDING-PLAYBOOK.md) for the playbook the skill follows when curating a new client.
 
 ## Status
 
-🚧 **Early development — v0.5.0**. F1-F4 working: full branding pipeline end-to-end. See [docs/STATUS.md](./docs/STATUS.md).
+🚧 **Early development — v0.6.0**. F1-F4 working; first real customer (Mayoral) validated end-to-end. See [docs/STATUS.md](./docs/STATUS.md).
 
 | Phase | Goal | Status |
 |---|---|---|

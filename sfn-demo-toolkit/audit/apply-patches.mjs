@@ -65,13 +65,16 @@ export function applyPatchedFile(targetRepo, patch) {
     }
 
     if (patch.op === 'replace-anchor') {
-        const re = new RegExp(patch.anchor);
+        const flags = patch.all ? 'g' : '';
+        const re = new RegExp(patch.anchor, flags);
         if (!re.test(content)) {
             // idempotent: maybe already replaced
             if (content.includes(patch.replacement)) return { applied: false, reason: 'replacement already present' };
             throw new Error(`anchor not found in ${patch.path}: ${patch.anchor}`);
         }
-        const next = content.replace(re, () => patch.replacement);
+        // RegExp lastIndex resets on a fresh regex, but be safe.
+        const reForReplace = new RegExp(patch.anchor, flags);
+        const next = content.replace(reForReplace, () => patch.replacement);
         writeFileSync(filePath, next);
         return { applied: true };
     }

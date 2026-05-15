@@ -1,6 +1,6 @@
 # Status
 
-Current version: **0.5.0** (F1 + F2 + F3 + F4 complete; full branding flow end-to-end)
+Current version: **0.6.0** (F1-F4 complete; first real-customer run validated on Mayoral)
 
 ## Phases
 
@@ -46,6 +46,28 @@ Current version: **0.5.0** (F1 + F2 + F3 + F4 complete; full branding flow end-t
 - Registers theme in `themes.css` (adds @import, idempotent)
 - Wired as `sfn-toolkit apply --target <repo> --brand-dir <dir>`
 - End-to-end validated: fresh clone → `patch` → `brand https://shop.tesla.com` → `apply` → typecheck 131/131 baseline. Re-running `apply` is a no-op for registered files (idempotent).
+
+### F4.5 — Skill consolidated after first real customer (Mayoral) ✅
+- **Skill rewritten** as Claude-driven workflow: the LLM does discovery
+  (WebFetch + curl), curates copy, picks images, designs the palette;
+  the CLI handles only mechanical steps (clone, patch, register).
+- **`docs/CLAUDE-BRANDING-PLAYBOOK.md`**: complete reference for future
+  runs. Includes: how to extract palette via grep-on-html, where to find
+  CDN images, full token map showing what each `--*` token actually
+  controls, anti-patterns from the Mayoral run, validation checklist
+  per page (home / PLP / PDP / cart / checkout).
+- **Patches v0.4 expanded**:
+  - `replace-anchor` now supports `all: true` flag (matches every
+    occurrence). Header has 2 logo variants in 0.4 (mobile-simplified
+    for checkout + full desktop) — both wrapped now.
+  - Footer logo wrapped (`footer.logo` UITarget).
+  - New `branded-footer-logo.tsx` component bundled.
+  - `target-config.json` registers footer.logo target.
+- **Patches v0.3 synced** to match (header `all: true`, footer wrap, new
+  component).
+- **Default `theme.css` template** now ships with extensive comments
+  documenting every brand-aware token to override (and the gotchas like
+  `--accent` being a hover surface, not a brand color).
 
 ### F5 — Catalog ⏳
 - Generator (templates per industry: fashion, food, beauty, generic)

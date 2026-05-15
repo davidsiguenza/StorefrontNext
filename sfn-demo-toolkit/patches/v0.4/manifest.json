@@ -73,9 +73,24 @@
         {
             "path": "src/components/header/index.tsx",
             "op": "replace-anchor",
+            "all": true,
             "anchor": "<img\\s+src=\\{logo\\}\\s+alt=\\{t\\('logoAlt'\\)\\}\\s+className=\"h-3 lg:h-4 w-auto \\[filter:var\\(--header-logo-filter\\)\\]\"\\s*/>",
             "replacement": "{/* @sfdc-extension-line SFDC_EXT_BRANDING */}\n                        <UITarget targetId=\"header.logo\"><img src={logo} alt={t('logoAlt')} className=\"h-3 lg:h-4 w-auto [filter:var(--header-logo-filter)]\" /></UITarget>",
-            "description": "Wrap header logo in UITarget"
+            "description": "Wrap header logo in UITarget (both mobile and desktop variants)"
+        },
+        {
+            "path": "src/components/footer/index.tsx",
+            "op": "insert-after-anchor",
+            "anchor": "import logo from '/images/logo\\.svg';",
+            "insert": "\nimport { UITarget } from '@/targets/ui-target';",
+            "description": "Import UITarget in footer"
+        },
+        {
+            "path": "src/components/footer/index.tsx",
+            "op": "replace-anchor",
+            "anchor": "<img\\s+src=\\{logo\\}\\s+alt=\\{t\\('logoAlt'\\)\\}\\s+className=\"h-4 w-auto\"\\s*/>",
+            "replacement": "{/* @sfdc-extension-line SFDC_EXT_BRANDING */}\n                                            <UITarget targetId=\"footer.logo\"><img src={logo} alt={t('logoAlt')} className=\"h-4 w-auto\" /></UITarget>",
+            "description": "Wrap footer logo in UITarget"
         },
         {
             "path": "src/routes/_app._index.tsx",
