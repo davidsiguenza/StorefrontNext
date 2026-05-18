@@ -35,8 +35,10 @@ zip                       → ready for BM Site Import & Export
 
 1. **Create the site in BM** before importing — the SFCC import job cannot
    create sites, only write data to existing ones.
-2. **Assign storefront catalog and inventory list in BM** after importing —
-   these are direct site attributes, not preferences.
+2. **Assign storefront catalog** after import: Administration → Sites → `<id>` → Storefront Catalog.
+3. **Assign inventory list** after import: Merchant Tools → Products and Catalogs → Inventory → `<list-id>` → Site Assignments.
+4. **Assign pricebook** after import: Merchant Tools → Pricing → Pricebooks → `<id>` → Site Assignments.
+   `SiteAssignablePriceBooks` / `SiteApplicablePriceBooks` are not valid standard preferences in most sandboxes — preferences.xml cannot bind pricebooks.
 
 ## Schema gotchas
 

@@ -322,10 +322,12 @@ The site-import job validates each XML strictly. From the Mayoral run:
 - `list-id` is an attribute of `<header>`, NOT of `<inventory-list>`.
 - `<description>` is a simple type — no `xml:lang` allowed (plain text).
 
-**preferences.xml (`impex/preferences/2007-03-31`):**
-- Standard preferences `SiteAssignablePriceBooks` and
-  `SiteApplicablePriceBooks` go under `<standard-preferences><all-instances>`,
-  not `<custom-preferences>`. `mayoral-list-prices-EUR` works as a value.
+**preferences.xml:**
+- `SiteAssignablePriceBooks` and `SiteApplicablePriceBooks` are **not**
+  standard preferences in most sandboxes — they produce `DATAERROR: Unknown
+  preference` and are silently skipped. Do not include a preferences.xml for
+  pricebook binding; assign the pricebook manually in BM after import:
+  Merchant Tools → Pricing → Pricebooks → `<id>` → Site Assignments.
 
 **site.xml (`impex/site/2007-04-09`):**
 - DO NOT ship a `sites/<id>/site.xml` for new-site creation. The job rejects
@@ -360,14 +362,13 @@ those paths under `static/default/images/`.
 ### BM steps the user must do
 
 1. **Create the site** (Administration → Sites → Manage Sites → New). Site
-   ID matching exactly the one in `sites/<id>/`. Set locale, currency,
-   timezone for the client market.
+   ID must match exactly the folder name in `sites/<id>/` (case-sensitive,
+   lowercase). Set locale, currency, timezone for the client market.
 2. **Site Import & Export → Import** the ZIP.
-3. **Site Configuration after import**:
-   - Storefront Catalog → select the imported catalog
-   - Storefront Inventory List → select the imported inventory list
-4. **Verify pricebook binding** in Site Preferences (should auto-apply via
-   preferences.xml; if not, set manually).
+3. **Site Configuration after import** (3 manual steps — cannot be automated):
+   - Storefront Catalog → Administration → Sites → `<id>` → select the imported catalog
+   - Inventory List → Merchant Tools → Products and Catalogs → Inventory → `<list-id>` → Site Assignments → add the site
+   - Pricebook → Merchant Tools → Pricing → Pricebooks → `<pricebook-id>` → Site Assignments → add the site
 
 ### Update the env profile
 

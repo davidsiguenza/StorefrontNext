@@ -1,18 +1,18 @@
 """
-Build site preferences for an EXISTING Mayoral site.
+Build the meta-data.xml required at the archive root for an EXISTING site.
 
 The SFCC site-import job cannot create new sites — only data assigned to
-existing ones. So the user creates the Mayoral site manually in Business
-Manager (Administration > Sites > Manage Sites > New) before importing.
+existing ones. The user creates the site manually in Business Manager
+(Administration > Sites > Manage Sites > New) before importing.
 
-This script generates:
-  - sites/Mayoral/preferences.xml — assigns the EUR pricebook
-  - meta-data.xml — required at archive root
+NOTE: SiteAssignablePriceBooks / SiteApplicablePriceBooks are NOT standard
+preferences in most sandboxes — they result in DATAERROR "Unknown preference"
+and are silently skipped. Pricebook assignment must be done manually in BM:
+  Merchant Tools → Pricing → Pricebooks → <pricebook-id> → Site Assignments
 
-Storefront catalog assignment (mayoral-catalog → Mayoral) is also done in
-BM after import: Administration > Sites > Mayoral > select 'mayoral-catalog'
-as Storefront Catalog. We can't put that in preferences.xml because it's a
-direct site attribute, not a preference.
+Storefront catalog and inventory list assignments are also manual in BM:
+  Administration → Sites → <site-id> → Storefront Catalog
+  Merchant Tools → Products and Catalogs → Inventory → <list-id> → Site Assignments
 """
 import shutil
 from pathlib import Path
@@ -20,19 +20,7 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 ARCHIVE = BASE / 'archive' / 'mayoral'
 
-SITE_ID = 'Mayoral'
-PRICEBOOK_ID = 'mayoral-list-prices-EUR'
-
-PREFERENCES_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
-<preferences xmlns="http://www.demandware.com/xml/impex/preferences/2007-03-31">
-    <standard-preferences>
-        <all-instances>
-            <preference preference-id="SiteAssignablePriceBooks">{PRICEBOOK_ID}</preference>
-            <preference preference-id="SiteApplicablePriceBooks">{PRICEBOOK_ID}</preference>
-        </all-instances>
-    </standard-preferences>
-</preferences>
-'''
+SITE_ID = 'mayoral'  # must match the site ID in BM exactly (case-sensitive, usually lowercase)
 
 META_DATA_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <metadata xmlns="http://www.demandware.com/xml/impex/metadata/2006-10-31">
@@ -44,23 +32,20 @@ def main():
     site_dir = ARCHIVE / 'sites' / SITE_ID
     site_dir.mkdir(parents=True, exist_ok=True)
 
-    # Per the b2c-cli site-import-export skill, preferences.xml lives directly
-    # under sites/<SiteID>/, NOT under sites/<SiteID>/preferences/.
-    (site_dir / 'preferences.xml').write_text(PREFERENCES_XML, encoding='utf-8')
-    print(f'Wrote {site_dir / "preferences.xml"}')
+    # Remove any stale preferences.xml or site.xml from previous runs
+    for stale in ['preferences.xml', 'site.xml']:
+        stale_path = site_dir / stale
+        if stale_path.exists():
+            stale_path.unlink()
+            print(f'Removed stale {stale_path}')
 
     # Remove old preferences/ subdir if present from previous run
     nested = site_dir / 'preferences'
     if nested.exists():
         shutil.rmtree(nested)
 
-    # Remove any stale site.xml from previous runs (we don't create sites here)
-    stale_site = site_dir / 'site.xml'
-    if stale_site.exists():
-        stale_site.unlink()
-        print(f'Removed {stale_site}')
-
     (ARCHIVE / 'meta-data.xml').write_text(META_DATA_XML, encoding='utf-8')
+    print(f'Wrote {ARCHIVE / "meta-data.xml"}')
 
     # Remove DSPMarketStreet folder if it leaked from earlier runs
     dspms_dir = ARCHIVE / 'sites' / 'DSPMarketStreet'
@@ -69,6 +54,10 @@ def main():
         print(f'Removed stale {dspms_dir}')
 
     print(f'Done. Archive expects an existing site "{SITE_ID}" in the sandbox.')
+    print('After import, assign in BM manually:')
+    print('  1. Storefront Catalog → mayoral-catalog')
+    print('  2. Inventory List → mayoral-inventory')
+    print('  3. Pricebook → mayoral-list-prices-EUR (Pricing → Pricebooks → Site Assignments)')
 
 
 if __name__ == '__main__':
