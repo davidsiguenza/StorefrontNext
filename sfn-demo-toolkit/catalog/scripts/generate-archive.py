@@ -82,6 +82,15 @@ def build_catalog_xml(products):
 
     Schema (simplified): http://www.demandware.com/xml/impex/catalog/2006-10-31
     """
+    # Build a map of category → first product's medium image path
+    cat_hero = {}
+    for p in products:
+        cat = p['category']
+        if cat not in cat_hero:
+            pid = p['variantId']
+            view_nums = sorted(int(k) for k in p['views'].keys())
+            cat_hero[cat] = f"{pid}/medium/{pid}-XL-{view_nums[0]}.jpg"
+
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     out = []
     out.append('<?xml version="1.0" encoding="UTF-8"?>')
@@ -99,8 +108,9 @@ def build_catalog_xml(products):
     # Sub-categories
     # Note: SFCC catalog XSD enforces a strict child order. <parent> must come
     # right after display-name/description/online-flag/online-from/online-to
-    # and BEFORE position/thumbnail/image/etc.
+    # and BEFORE position/thumbnail/image/etc. <thumbnail>/<image> come after <position>.
     for cat_id, labels in CATEGORY_LABELS.items():
+        hero_img = cat_hero.get(cat_id)
         out.append(f'    <category category-id="{cat_id}">')
         out.append(f'        <display-name xml:lang="x-default">{x(labels["en-US"])}</display-name>')
         out.append(f'        <display-name xml:lang="es-ES">{x(labels["es-ES"])}</display-name>')
@@ -108,6 +118,12 @@ def build_catalog_xml(products):
         out.append('        <online-flag>true</online-flag>')
         out.append('        <parent>root</parent>')
         out.append(f'        <position>{labels["order"]}.0</position>')
+        if hero_img:
+            out.append(f'        <thumbnail>{x(hero_img)}</thumbnail>')
+            out.append(f'        <image>{x(hero_img)}</image>')
+        out.append('        <custom-attributes>')
+        out.append('            <custom-attribute attribute-id="showInMenu">true</custom-attribute>')
+        out.append('        </custom-attributes>')
         out.append('    </category>')
 
     # Products (simple non-variant for now)

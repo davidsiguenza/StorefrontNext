@@ -369,14 +369,17 @@ those paths under `static/default/images/`.
    - Storefront Catalog → Administration → Sites → `<id>` → select the imported catalog
    - Inventory List → Merchant Tools → Products and Catalogs → Inventory → `<list-id>` → Site Assignments → add the site
    - Pricebook → Merchant Tools → Pricing → Pricebooks → `<pricebook-id>` → Site Assignments → add the site
+4. **Add the pricebook currency to the site** — if the site's default currency differs from the pricebook (e.g. site is GBP, pricebook is EUR), you must explicitly add the pricebook currency or SCAPI returns 500 on every product/search call:
+   - Merchant Tools → Site Preferences → Currencies → Add → `EUR` (or whichever currency the pricebook uses)
 
 ### Update the env profile
 
 After import, switch the brand `.env.profiles/<id>.env` to:
 ```
-PUBLIC__app__defaultSiteId=<NewSiteId>
+PUBLIC__app__defaultSiteId=<SiteId>
+PUBLIC__app__commerce__sites='[{"id":"<SiteId>","defaultLocale":"<locale>","defaultCurrency":"<currency>","supportedLocales":[{"id":"<locale>","preferredCurrency":"<currency>"}],"supportedCurrencies":["<currency>"]}]'
 ```
-and the `commerce.sites` array with the supported locales of the new site.
+The `defaultLocale` must be a locale already configured in BM for that site, and `defaultCurrency` must be in the site's currency list (step 4 above).
 Restart `pnpm dev`.
 
 ---
